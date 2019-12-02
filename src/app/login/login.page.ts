@@ -11,6 +11,7 @@ import { AngularFirestore, AngularFirestoreDocument } from '@angular/fire/firest
 import { UserService } from '../user.service'
 import { Observable, of } from 'rxjs';
 import { Usuario } from 'src/app/services/user.model';
+import { AlertController } from '@ionic/angular';
  
 
 @Component({
@@ -19,6 +20,9 @@ import { Usuario } from 'src/app/services/user.model';
   styleUrls: ['./login.page.scss'],
 })
 export class LoginPage implements OnInit {
+  username: string = ""
+	password: string = ""
+	cpassword: string = ""
   
 
 	@ViewChild(IonSlides,{static: true}) slides: IonSlides;
@@ -40,11 +44,24 @@ export class LoginPage implements OnInit {
     private afa: AngularFireAuth,
         private afAuth: AngularFireAuth,
         private afs: AngularFirestore,
+        public alertController: AlertController,
+        public afstore: AngularFirestore,
+        public user: UserService,
   ) { 
     this.menuCtrl.enable(false);
   }
 
   ngOnInit() { }
+
+  async presentAlert(title: string, content: string) {
+		const alert = await this.alertController.create({
+			header: title,
+			message: content,
+			buttons: ['OK']
+		})
+
+		await alert.present()
+	}
 
   segmentChanged(event: any) {
     if (event.detail.value === 'login') {
@@ -70,17 +87,32 @@ export class LoginPage implements OnInit {
   }
 
   async register() {
-    await this.presentLoading();
+    //const { username, password, cpassword } = this
+    const username = this.username;
+    const password = this.password;
+    const cpassword = this.cpassword;
+		if(password !== cpassword) {
+			return console.error("Passwords don't match")
+		}
 
-    try {
-      await this.authService.register(this.userRegister);
-    } catch (error) {
-      this.presentToast(error.message);
-    } finally {
-      this.loading.dismiss();
-      await this.router.navigate(['/login']);
-    }
-  }
+		try {
+			const res = await this.afAuth.auth.createUserWithEmailAndPassword(username , password)
+
+			this.afstore.doc(`users/${res.user.uid}`).set({
+				username
+			})
+
+			this.user.setUser({
+				username,
+				uid: res.user.uid
+			})
+
+			this.presentAlert('Successo', 'Você foi registrado!')
+      this.router.navigate(['/login'])
+    } catch(error) {
+			console.dir(error)
+		}
+	}
 
   async presentLoading() {
     this.loading = await this.loadingCtrl.create({ message: 'Aguarde...' });
